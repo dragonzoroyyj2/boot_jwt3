@@ -50,7 +50,7 @@ public class P01A04ApiController {
         for (int i = 1; i <= 100; i++) {
             Map<String, Object> item = new HashMap<>();
             item.put("id", i);
-            item.put("title", "보고서 " + i);
+            item.put("title", "보고서ㅈㄷㄱㄷㅈㄱㄷㅈㄱㅈㄷㄱㅈㄷㄱㄷㅈㄷㅈㄱㄷㅈㄱㄷㅈㄱㄷㄱ " + i);
             item.put("owner", "홍길동");
             item.put("regDate", "2025-10-06");
             mockList.add(item);

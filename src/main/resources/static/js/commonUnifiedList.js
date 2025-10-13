@@ -37,45 +37,33 @@ function initUnifiedList(config) {
     detailFields,
     updateBtnSelector,
     excelBtnSelector,
-    columns
+    columns,
+    pageSize = 10,
+    groupSize = 10
   } = config;
 
   // --------------------------------------------------------
   // ⚙️ 공용 변수 및 헬퍼
   // --------------------------------------------------------
   let currentPage = 0;
-  const pageSize = 10; // 페이지당 개수 기본값
 
-  // 간단한 셀렉터 단축 함수
   const $ = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
 
-  // CSRF 대응
   const csrfToken = document.querySelector("meta[name='_csrf']")?.content;
   const csrfHeader = document.querySelector("meta[name='_csrf_header']")?.content;
 
-  /**
-   * ✅ fetchOptions(method, body)
-   *  모든 API 요청 공통 헤더 구성 + JWT 자동 추가
-   */
   const fetchOptions = (method, body) => {
-    const opt = {
-      method,
-      headers: { "Content-Type": "application/json" }
-    };
-
+    const opt = { method, headers: { "Content-Type": "application/json" } };
     if (csrfToken && csrfHeader) opt.headers[csrfHeader] = csrfToken;
-
     if (body) opt.body = JSON.stringify(body);
-
     const token = localStorage.getItem("token");
     if (token) opt.headers["Authorization"] = "Bearer " + token;
-
     return opt;
   };
 
   // --------------------------------------------------------
-  // 📋 리스트 조회 (GET /api/{mode}?page=&size=&search=)
+  // 📋 리스트 조회
   // --------------------------------------------------------
   async function loadList(page = 0) {
     const search = $(searchInputSelector)?.value || "";
@@ -93,15 +81,11 @@ function initUnifiedList(config) {
 
       const data = await res.json();
 
-      // 테이블/페이징 렌더링
       renderTable(data.content || []);
       renderPagination(data.page, data.totalPages);
 
-      // ✅ 총 건수 이벤트 발생 (페이지에서 수신하여 표시)
       document.dispatchEvent(
-        new CustomEvent("totalCountUpdated", {
-          detail: { count: data.totalElements ?? 0 }
-        })
+        new CustomEvent("totalCountUpdated", { detail: { count: data.totalElements ?? 0 } })
       );
     } catch (err) {
       console.error(err);
@@ -117,37 +101,30 @@ function initUnifiedList(config) {
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    // 데이터 없음 처리
     if (list.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${columns.length + 1}">데이터가 없습니다.</td></tr>`;
       return;
     }
 
-    // 데이터 행 렌더링
     list.forEach(row => {
       const tr = document.createElement("tr");
 
-      // ✅ 체크박스 열
       const chkTd = document.createElement("td");
       chkTd.innerHTML = `<input type="checkbox" value="${row.id}">`;
       tr.appendChild(chkTd);
 
-      // ✅ 컬럼 데이터
       columns.forEach(col => {
         const td = document.createElement("td");
         const val = row[col.key] ?? "";
         if (col.isDetailLink) {
           td.innerHTML = `<a href="#" data-id="${row.id}" class="detail-link">${val}</a>`;
-        } else {
-          td.textContent = val;
-        }
+        } else td.textContent = val;
         tr.appendChild(td);
       });
 
       tbody.appendChild(tr);
     });
 
-    // ✅ 상세보기 링크 클릭 이벤트
     $$(".detail-link").forEach(a => {
       a.addEventListener("click", e => {
         e.preventDefault();
@@ -157,7 +134,7 @@ function initUnifiedList(config) {
   }
 
   // --------------------------------------------------------
-  // 📄 페이징 렌더링
+  // 📄 페이징 렌더링 (수정: groupSize 10 이상 → 두 줄)
   // --------------------------------------------------------
   function renderPagination(page, totalPages) {
     const container = $(paginationSelector);
@@ -166,7 +143,6 @@ function initUnifiedList(config) {
 
     if (totalPages <= 0) return;
 
-    const groupSize = 5;
     const currentGroup = Math.floor(page / groupSize);
     const startPage = currentGroup * groupSize;
     const endPage = Math.min(startPage + groupSize, totalPages);
@@ -192,6 +168,10 @@ function initUnifiedList(config) {
 
     makeBtn(">", page >= totalPages - 1, () => loadList(page + 1));
     makeBtn(">>", page >= totalPages - 1, () => loadList(totalPages - 1));
+
+    // ✅ groupSize 10 이상 시 flex-wrap: wrap, row-gap 설정
+    container.style.flexWrap = groupSize >= 11 ? "wrap" : "nowrap";
+    container.style.rowGap = groupSize >= 11 ? "6px" : "0";
   }
 
   // --------------------------------------------------------
@@ -203,18 +183,12 @@ function initUnifiedList(config) {
   });
 
   // --------------------------------------------------------
-  // ➕ 등록 (POST)
+  // ➕ 등록 / 저장 / 상세 / 수정 / 삭제 / 엑셀
   // --------------------------------------------------------
-  $(addBtnSelector)?.addEventListener("click", () => {
-    $(modalId).style.display = "block";
-  });
+  $(addBtnSelector)?.addEventListener("click", () => { $(modalId).style.display = "block"; });
 
   $(saveBtnSelector)?.addEventListener("click", async () => {
-    const data = {
-      title: $("#titleInput").value,
-      owner: $("#ownerInput").value
-    };
-
+    const data = { title: $("#titleInput").value, owner: $("#ownerInput").value };
     const res = await fetch(apiUrl, fetchOptions("POST", data));
     const result = await res.json();
     alert(result.status === "success" ? "등록 완료" : "등록 실패");
@@ -222,22 +196,16 @@ function initUnifiedList(config) {
     loadList();
   });
 
-  // --------------------------------------------------------
-  // 🔎 상세보기 (GET /api/{mode}/{id})
-  // --------------------------------------------------------
   async function openDetailModal(id) {
     try {
       const res = await fetch(`${apiUrl}/${id}`, fetchOptions("GET"));
       if (!res.ok) throw new Error("상세 조회 실패");
-
       const item = await res.json();
       if (!item) return alert("데이터를 찾을 수 없습니다.");
-
       $(detailFields.id).value = item.id;
       $(detailFields.title).value = item.title;
       $(detailFields.owner).value = item.owner;
       $(detailFields.regDate).value = item.regDate;
-
       $(detailModalId).style.display = "block";
     } catch (err) {
       console.error(err);
@@ -245,16 +213,9 @@ function initUnifiedList(config) {
     }
   }
 
-  // --------------------------------------------------------
-  // ✏️ 수정 (PUT /api/{mode}/{id})
-  // --------------------------------------------------------
   $(updateBtnSelector)?.addEventListener("click", async () => {
     const id = $(detailFields.id).value;
-    const data = {
-      title: $(detailFields.title).value,
-      owner: $(detailFields.owner).value
-    };
-
+    const data = { title: $(detailFields.title).value, owner: $(detailFields.owner).value };
     const res = await fetch(`${apiUrl}/${id}`, fetchOptions("PUT", data));
     const result = await res.json();
     alert(result.status === "updated" ? "수정 완료" : "수정 실패");
@@ -262,17 +223,10 @@ function initUnifiedList(config) {
     loadList(currentPage);
   });
 
-  // --------------------------------------------------------
-  // ❌ 삭제 (DELETE /api/{mode})
-  // --------------------------------------------------------
   $(deleteSelectedBtnSelector)?.addEventListener("click", async () => {
-    const checked = Array.from(
-      document.querySelectorAll(`${tableBodySelector} input[type='checkbox']:checked`)
-    ).map(chk => parseInt(chk.value));
-
+    const checked = Array.from(document.querySelectorAll(`${tableBodySelector} input[type='checkbox']:checked`)).map(chk => parseInt(chk.value));
     if (checked.length === 0) return alert("삭제할 항목을 선택하세요.");
     if (!confirm(`${checked.length}건을 삭제하시겠습니까?`)) return;
-
     try {
       const res = await fetch(apiUrl, fetchOptions("DELETE", checked));
       const result = await res.json();
@@ -284,29 +238,16 @@ function initUnifiedList(config) {
     }
   });
 
-  // --------------------------------------------------------
-  // 📊 엑셀 다운로드 (안정형)
-  // --------------------------------------------------------
   $(excelBtnSelector)?.addEventListener("click", async () => {
     try {
       const search = $(searchInputSelector)?.value || "";
-      const timestamp = new Date().getTime(); // 캐시 방지용
+      const timestamp = new Date().getTime();
       const url = `${apiUrl}/excel?search=${encodeURIComponent(search)}&t=${timestamp}`;
-
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: "Bearer " + token } : {};
-
       const res = await fetch(url, { method: "GET", headers });
-
-      if (res.status === 401) {
-        alert("세션이 만료되었습니다. 다시 로그인해주세요.");
-        localStorage.clear();
-        window.location.href = "/login";
-        return;
-      }
+      if (res.status === 401) { alert("세션이 만료되었습니다."); localStorage.clear(); window.location.href = "/login"; return; }
       if (!res.ok) throw new Error("엑셀 다운로드 실패");
-
-      // 파일명 추출 (UTF-8 / ASCII 모두 대응)
       const disposition = res.headers.get("Content-Disposition");
       let filename = "리스트.xlsx";
       if (disposition) {
@@ -315,16 +256,10 @@ function initUnifiedList(config) {
         if (utf8) filename = decodeURIComponent(utf8[1]);
         else if (ascii) filename = ascii[1];
       }
-
-      // Blob → 다운로드
       const blob = await res.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = blobUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("❌ Excel Download Error:", err);
@@ -339,9 +274,7 @@ function initUnifiedList(config) {
   if (checkAllEl) {
     checkAllEl.addEventListener("change", e => {
       const checked = e.target.checked;
-      document
-        .querySelectorAll(`${tableBodySelector} input[type='checkbox']`)
-        .forEach(chk => (chk.checked = checked));
+      document.querySelectorAll(`${tableBodySelector} input[type='checkbox']`).forEach(chk => (chk.checked = checked));
     });
   }
 
