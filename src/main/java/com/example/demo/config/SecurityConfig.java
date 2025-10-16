@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import com.example.demo.jwt.JwtAuthenticationFilter;
 import com.example.demo.service.CustomUserDetailsService;
@@ -58,10 +59,15 @@ public class SecurityConfig {
                 .requestMatchers(staticResources).permitAll()
                 .requestMatchers(publicEndpoints).permitAll()
 
+                // 인증 없이 열고 싶은 API
+                .requestMatchers("/api/krx/**").permitAll()
+                
                 // 인증 필요한 영역
                 .requestMatchers("/auth/**", "/api/**").authenticated()
                 .requestMatchers("/pages/main/base**").permitAll()
                 .requestMatchers("/pages/**").permitAll()
+                
+               
 
                 // 나머지는 차단
                 .anyRequest().denyAll()

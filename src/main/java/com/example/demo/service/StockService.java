@@ -21,7 +21,7 @@ public class StockService {
     private final String scriptPath = "C:\\LocBootProject\\workspace\\demo\\python\\krx_list_fetch.py";
     private final String jsonPath = "C:\\LocBootProject\\workspace\\demo\\python\\krx_list_full.json";
 
-    public List<Map<String, String>> fetchKrxList() {
+    public List<Map<String, String>> fetchKrxList() { 
         try {
             ProcessBuilder pb = new ProcessBuilder(pythonExe, scriptPath);
             pb.directory(new File("C:\\LocBootProject\\workspace\\demo\\python"));

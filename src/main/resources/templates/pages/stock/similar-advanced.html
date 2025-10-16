@@ -1,0 +1,92 @@
+<!-- /demo/src/main/resources/templates/pages/stock/similar-advanced.html -->
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/default_layout}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>유사 종목 조회 (Advanced)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* 기존 스타일 그대로 유지 */
+  </style>
+</head>
+<body>
+<div layout:fragment="content">
+  <div class="content-container">
+    <h2>📊 유사 종목 조회 (Advanced)</h2>
+    <div class="controls">
+      <input type="text" id="companyInput" placeholder="회사명 입력" value="케이엔알시스템">
+      <input type="date" id="startDate" value="2024-03-07">
+      <input type="date" id="endDate" value="2024-12-09">
+      <button id="fetchBtn">조회</button>
+      <span>총 <span id="totalCount">0</span>개</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>종목파일</th>
+          <th>거리(DTW)</th>
+          <th>날짜</th>
+          <th>종가</th>
+        </tr>
+      </thead>
+      <tbody id="krxTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<th:block layout:fragment="pageScript">
+<script>
+document.getElementById("fetchBtn").addEventListener("click", () => {
+  const btn = document.getElementById("fetchBtn");
+  btn.disabled = true;
+  btn.textContent = "조회 중...";
+
+  const company = document.getElementById("companyInput").value.trim();
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+
+  if (!company || !start || !end) {
+    alert("회사명과 날짜를 입력해주세요.");
+    btn.disabled = false;
+    btn.textContent = "조회";
+    return;
+  }
+
+  fetch(`/api/krx/similar-advanced?company=${encodeURIComponent(company)}&start=${start}&end=${end}`)
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.getElementById("krxTableBody");
+      const total = document.getElementById("totalCount");
+      tbody.innerHTML = "";
+      total.textContent = data.length;
+
+      data.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="종목파일">${item.file || ''}</td>
+          <td data-label="거리(DTW)">${item.distance || ''}</td>
+          <td data-label="날짜">${(item.dates || []).join(", ")}</td>
+          <td data-label="종가">${(item.prices || []).join(", ")}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      btn.disabled = false;
+      btn.textContent = "조회";
+    })
+    .catch(err => {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "조회";
+      alert("데이터 조회 중 오류가 발생했습니다.");
+    });
+});
+</script>
+</th:block>
+</body>
+</html>
