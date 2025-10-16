@@ -61,3 +61,9 @@ python -c "import pandas; import requests; import lxml; import bs4; print('모�
 
 
 ✅ 여기까지 뜨면 Python 환경과 필수 패키지 세팅 완료
+
+
+
+
+dragonzoroyj04 시작
+pip install pandas numpy yfinance openpyxl
